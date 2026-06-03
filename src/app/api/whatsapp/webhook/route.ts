@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import fs from 'fs'
+import path from 'path'
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption'
 import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api'
 import { normalizePhone, phonesMatch } from '@/lib/whatsapp/phone-utils'
@@ -305,7 +307,20 @@ async function handleStatusUpdate(status: {
   status: string
   timestamp: string
   recipient_id: string
+  errors?: any[]
 }) {
+  // Log failure details to a file for diagnostics
+  if (status.status === 'failed') {
+    try {
+      const logPath = path.resolve(process.cwd(), 'webhook-errors.log')
+      const logEntry = `[${new Date().toISOString()}] Message ID: ${status.id}, Recipient: ${status.recipient_id}, Errors: ${JSON.stringify(status.errors || [])}\n`
+      fs.appendFileSync(logPath, logEntry)
+      console.log(`[webhook] Logged failed message status to ${logPath}`)
+    } catch (err) {
+      console.error('[webhook] Failed to write to webhook-errors.log:', err)
+    }
+  }
+
   // 1) Mirror onto messages (legacy behavior) — Meta's status values
   //    already match the CHECK constraint on messages.status.
   const { error: msgErr } = await supabaseAdmin()
