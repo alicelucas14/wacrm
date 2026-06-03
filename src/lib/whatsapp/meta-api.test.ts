@@ -3,6 +3,7 @@ import {
   INTERACTIVE_LIMITS,
   sendInteractiveButtons,
   sendInteractiveList,
+  subscribeAppToWaba,
 } from "./meta-api";
 
 // All assertions in this file run BEFORE the network call. We stub fetch
@@ -267,3 +268,60 @@ describe("sendInteractiveList — validation", () => {
     });
   });
 });
+
+describe("subscribeAppToWaba", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("calls the correct Meta API endpoint and returns success", async () => {
+    let captured: { url: string; method: string; headers: Record<string, string> } | null = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: RequestInit) => {
+        captured = {
+          url,
+          method: init.method ?? "GET",
+          headers: init.headers as Record<string, string>,
+        };
+        return new Response(
+          JSON.stringify({ success: true }),
+          { status: 200 },
+        );
+      }),
+    );
+
+    const result = await subscribeAppToWaba({
+      wabaId: "waba-123",
+      accessToken: "token-abc",
+    });
+
+    expect(result).toBe(true);
+    expect(captured).not.toBeNull();
+    expect(captured!.method).toBe("POST");
+    expect(captured!.url).toContain("waba-123/subscribed_apps");
+    expect(captured!.headers).toEqual({
+      Authorization: "Bearer token-abc",
+    });
+  });
+
+  it("throws error if Meta API returns non-OK status", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(
+          JSON.stringify({ error: { message: "Permission denied" } }),
+          { status: 403 },
+        );
+      }),
+    );
+
+    await expect(
+      subscribeAppToWaba({
+        wabaId: "waba-123",
+        accessToken: "token-abc",
+      }),
+    ).rejects.toThrow("Permission denied");
+  });
+});
+

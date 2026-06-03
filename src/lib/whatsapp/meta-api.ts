@@ -65,6 +65,32 @@ export async function verifyPhoneNumber(
   return response.json()
 }
 
+export interface SubscribeAppToWabaArgs {
+  wabaId: string
+  accessToken: string
+}
+
+/**
+ * Register this App to receive webhook events from a specific WhatsApp Business Account (WABA).
+ * Crucial so production messages trigger webhook callbacks to our server.
+ */
+export async function subscribeAppToWaba(
+  args: SubscribeAppToWabaArgs
+): Promise<boolean> {
+  const { wabaId, accessToken } = args
+  const url = `${META_API_BASE}/${wabaId}/subscribed_apps`
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+  const data = await response.json()
+  return data.success === true
+}
+
+
 // ============================================================
 // Sending
 // ============================================================

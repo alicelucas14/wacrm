@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { verifyPhoneNumber } from '@/lib/whatsapp/meta-api'
+import { verifyPhoneNumber, subscribeAppToWaba } from '@/lib/whatsapp/meta-api'
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption'
 
 // Lazy-initialised service-role client. We need it to detect a
@@ -191,6 +191,19 @@ export async function POST(request: Request) {
         { error: `Meta API error: ${message}` },
         { status: 400 }
       )
+    }
+
+    // Auto-subscribe the Meta App to WABA webhook events if waba_id is provided
+    if (waba_id) {
+      try {
+        await subscribeAppToWaba({
+          wabaId: waba_id,
+          accessToken: access_token,
+        })
+        console.log(`Successfully subscribed App to WABA: ${waba_id}`)
+      } catch (err) {
+        console.error('Failed to automatically subscribe App to WABA:', err instanceof Error ? err.message : err)
+      }
     }
 
     // Encrypt sensitive tokens before storing
