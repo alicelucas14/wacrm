@@ -23,6 +23,7 @@ interface Profile {
    * #134 — but the column survives for future beta gates.
    */
   beta_features: string[];
+  is_online?: boolean;
 }
 
 interface AuthContextValue {
@@ -76,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, avatar_url, role, beta_features")
+        .select("id, full_name, email, avatar_url, role, beta_features, is_online")
         .eq("user_id", userId)
         .maybeSingle();
 

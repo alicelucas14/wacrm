@@ -171,7 +171,7 @@ async function executeAutomation(automation: Automation, input: DispatchInput) {
   }
 }
 
-interface ExecuteArgs {
+export interface ExecuteArgs {
   automation: Automation
   contactId: string | null
   context: AutomationContext
@@ -294,7 +294,7 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<void> {
   }
 }
 
-async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string> {
+export async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string> {
   const db = supabaseAdmin()
 
   switch (step.step_type) {
@@ -375,12 +375,32 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       if (!args.contactId) throw new Error('assign_conversation needs a contact')
       let agentId = cfg.agent_id
       if (cfg.mode === 'round_robin') {
-        const { data: profiles } = await db
+        const { data: onlineProfiles } = await db
           .from('profiles')
           .select('user_id')
-          .eq('user_id', args.automation.user_id)
-          .limit(1)
-        agentId = profiles?.[0]?.user_id
+          .eq('is_online', true)
+
+        if (onlineProfiles && onlineProfiles.length > 0) {
+          const counts = await Promise.all(
+            onlineProfiles.map(async (p: { user_id: string }) => {
+              const { count } = await db
+                .from('conversations')
+                .select('id', { count: 'exact', head: true })
+                .eq('assigned_agent_id', p.user_id)
+                .in('status', ['open', 'pending'])
+              return { userId: p.user_id, count: count ?? 0 }
+            })
+          )
+          counts.sort((a, b) => a.count - b.count)
+          agentId = counts[0].userId
+        } else {
+          const { data: fallbackProfiles } = await db
+            .from('profiles')
+            .select('user_id')
+            .eq('user_id', args.automation.user_id)
+            .limit(1)
+          agentId = fallbackProfiles?.[0]?.user_id
+        }
       }
       if (!agentId) return 'no agent resolved'
       await db

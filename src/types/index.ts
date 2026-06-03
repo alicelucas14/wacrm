@@ -14,6 +14,7 @@ export interface Profile {
    */
   beta_features?: string[];
   created_at: string;
+  is_online?: boolean;
 }
 
 export interface Contact {
